@@ -3,18 +3,15 @@ using HarmonyLib;
 using System.Collections.Generic;
 using TaleWorlds.MountAndBlade;
 using System.Linq;
-using System.Text;
 using System.Reflection;
 using TaleWorlds.Core;
 using System.Windows.Forms;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.SandBox.GameComponents;
 using TaleWorlds.Localization;
-using TaleWorlds.MountAndBlade.GauntletUI.Widgets.CharacterDeveloper;
 using TaleWorlds.CampaignSystem.ViewModelCollection.CharacterDeveloper;
 using TaleWorlds.CampaignSystem.ViewModelCollection;
 using TaleWorlds.Core.ViewModelCollection;
-using System.IO;
 using TaleWorlds.Library;
 using System.Xml;
 
