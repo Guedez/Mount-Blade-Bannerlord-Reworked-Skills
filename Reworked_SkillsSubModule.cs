@@ -47,12 +47,18 @@ namespace Reworked_Skills {
                         case "experiencemultipliermode":
                             switch (n.InnerText.ToLower()) {
                                 case "default":
+                                    __FIXEDRATE = false;
+                                    __DEFAULTNORMALIZEDLEARNING = false;
                                     __DEFAULTLEARNING = true;
                                     break;
                                 case "defaultnormalized":
+                                    __DEFAULTLEARNING = false;
+                                    __FIXEDRATE = false;
                                     __DEFAULTNORMALIZEDLEARNING = true;
                                     break;
                                 case "fixed":
+                                    __DEFAULTLEARNING = false;
+                                    __DEFAULTNORMALIZEDLEARNING = false;
                                     __FIXEDRATE = true;
                                     break;
                             }
@@ -97,8 +103,12 @@ namespace Reworked_Skills {
     [HarmonyPatch(typeof(CharacterObject), "GetSkillValue")]
     class Patch1 {
         static bool Prefix(CharacterObject __instance, CharacterSkills ____characterSkills, ref int __result, SkillObject skill) {
-            int focus = __instance.HeroObject.HeroDeveloper.GetFocus(skill);
-            int attr = __instance.HeroObject.GetAttributeValue(skill.CharacterAttributesEnum);
+            int focus = 0;
+            int attr = 0;
+            if (__instance.HeroObject != null) {
+                focus = __instance.HeroObject.HeroDeveloper.GetFocus(skill);
+                attr = __instance.HeroObject.GetAttributeValue(skill.CharacterAttributesEnum);
+            }
             if (__instance.IsHero) {
                 __result = (int)(__instance.HeroObject.GetSkillValue(skill) + focus * Reworked_SkillsSubModule.__FOCUS_VALUE + attr * Reworked_SkillsSubModule.__ATTR_VALUE);
             } else {
