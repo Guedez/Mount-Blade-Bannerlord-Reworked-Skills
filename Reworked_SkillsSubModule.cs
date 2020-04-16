@@ -157,14 +157,6 @@ namespace Reworked_Skills {
         }
     }
 
-    [HarmonyPatch(typeof(DefaultCharacterDevelopmentModel), "CalculateLearningRate", typeof(Hero), typeof(SkillObject), typeof(StatExplainer))]
-    public class Patch5 {
-        static bool Prefix(DefaultCharacterDevelopmentModel __instance, Hero hero, SkillObject skill, StatExplainer explainer, ref float __result) {
-            __result = Reworked_SkillsSubModule.__LEANRINGLIMIT;
-            return false; // make sure you only skip if really necessary
-        }
-    }
-
     [HarmonyPatch(typeof(DefaultCharacterDevelopmentModel), "CalculateLearningRate",
         typeof(int), typeof(int), typeof(int), typeof(int), typeof(TextObject), typeof(StatExplainer))]
     class Patch6 {
