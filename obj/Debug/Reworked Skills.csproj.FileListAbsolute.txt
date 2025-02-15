@@ -4,3 +4,8 @@ C:\Program Files (x86)\Steam\steamapps\common\Mount & Blade II Bannerlord\Module
 C:\Users\rafae\source\repos\Reworked Skills\obj\Debug\Reworked Skills.csproj.CopyComplete
 C:\Users\rafae\source\repos\Reworked Skills\obj\Debug\Reworked_Skills.dll
 C:\Users\rafae\source\repos\Reworked Skills\obj\Debug\Reworked_Skills.pdb
+D:\Workspace\Mount-Blade-Bannerlord-Reworked-Skills\obj\Debug\Reworked Skills.csproj.AssemblyReference.cache
+D:\Workspace\Mount-Blade-Bannerlord-Reworked-Skills\obj\Debug\Reworked Skills.csproj.CoreCompileInputs.cache
+D:\Workspace\Mount-Blade-Bannerlord-Reworked-Skills\obj\Debug\Reworked Skills.csproj.CopyComplete
+D:\Workspace\Mount-Blade-Bannerlord-Reworked-Skills\obj\Debug\Reworked_Skills.dll
+D:\Workspace\Mount-Blade-Bannerlord-Reworked-Skills\obj\Debug\Reworked_Skills.pdb

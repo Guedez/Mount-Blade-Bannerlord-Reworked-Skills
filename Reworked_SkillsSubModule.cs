@@ -7,13 +7,15 @@ using System.Reflection;
 using TaleWorlds.Core;
 using System.Windows.Forms;
 using TaleWorlds.CampaignSystem;
-using TaleWorlds.CampaignSystem.SandBox.GameComponents;
 using TaleWorlds.Localization;
 using TaleWorlds.CampaignSystem.ViewModelCollection.CharacterDeveloper;
 using TaleWorlds.CampaignSystem.ViewModelCollection;
-using TaleWorlds.Core.ViewModelCollection;
 using TaleWorlds.Library;
 using System.Xml;
+using TaleWorlds.CampaignSystem.CharacterDevelopment;
+using TaleWorlds.CampaignSystem.GameComponents;
+using TaleWorlds.Core.ViewModelCollection.Generic;
+using TaleWorlds.Core.ViewModelCollection.Information;
 
 namespace Reworked_Skills {
     public class Reworked_SkillsSubModule : MBSubModuleBase {
@@ -29,6 +31,7 @@ namespace Reworked_Skills {
 
 
         public static MethodInfo GetTooltipForAccumulatingPropertyWithResult;
+
         protected override void OnSubModuleLoad() {
             base.OnSubModuleLoad();
             try {
@@ -75,9 +78,7 @@ namespace Reworked_Skills {
                         case "learninglimit":
                             int.TryParse(n.InnerText, out __LEANRINGLIMIT);
                             break;
-
                     }
-
                 }
 
                 if (GetTooltipForAccumulatingPropertyWithResult == null) {
@@ -100,19 +101,20 @@ namespace Reworked_Skills {
             }
         }
     }
+
     [HarmonyPatch(typeof(CharacterObject), "GetSkillValue")]
     class Patch1 {
-        static bool Prefix(CharacterObject __instance, CharacterSkills ____characterSkills, ref int __result, SkillObject skill) {
+        static bool Prefix(CharacterObject __instance, MBCharacterSkills ___DefaultCharacterSkills, ref int __result, SkillObject skill) {
             int focus = 0;
             int attr = 0;
             if (__instance.HeroObject != null) {
                 focus = __instance.HeroObject.HeroDeveloper.GetFocus(skill);
-                attr = __instance.HeroObject.GetAttributeValue(skill.CharacterAttributesEnum);
+                attr = __instance.HeroObject.GetAttributeValue(skill.CharacterAttribute);
             }
-            if (__instance.IsHero) {
+            if (__instance.IsHero && __instance.HeroObject != null) {
                 __result = (int)(__instance.HeroObject.GetSkillValue(skill) + focus * Reworked_SkillsSubModule.__FOCUS_VALUE + attr * Reworked_SkillsSubModule.__ATTR_VALUE);
             } else {
-                __result = (int)(____characterSkills.GetPropertyValue(skill) + focus * Reworked_SkillsSubModule.__FOCUS_VALUE + attr * Reworked_SkillsSubModule.__ATTR_VALUE);
+                __result = (int)(___DefaultCharacterSkills.Skills.GetPropertyValue(skill) + focus * Reworked_SkillsSubModule.__FOCUS_VALUE + attr * Reworked_SkillsSubModule.__ATTR_VALUE);
             }
             return false;
         }
@@ -120,137 +122,174 @@ namespace Reworked_Skills {
 
     [HarmonyPatch(typeof(BasicCharacterObject), "GetSkillValue")]
     class Patch2 {
-        static bool Prefix(CharacterObject __instance, CharacterSkills ____characterSkills, ref int __result, SkillObject skill) {
+        static bool Prefix(CharacterObject __instance, MBCharacterSkills ___DefaultCharacterSkills, ref int __result, SkillObject skill) {
             int focus = __instance.HeroObject.HeroDeveloper.GetFocus(skill);
-            int attr = __instance.HeroObject.GetAttributeValue(skill.CharacterAttributesEnum);
-            __result = (int)(____characterSkills.GetPropertyValue(skill) + focus * Reworked_SkillsSubModule.__FOCUS_VALUE + attr * Reworked_SkillsSubModule.__ATTR_VALUE);
+            int attr = __instance.HeroObject.GetAttributeValue(skill.CharacterAttribute);
+            __result = (int)(___DefaultCharacterSkills.Skills.GetPropertyValue(skill) + focus * Reworked_SkillsSubModule.__FOCUS_VALUE + attr * Reworked_SkillsSubModule.__ATTR_VALUE);
             return false;
         }
     }
 
-    [HarmonyPatch(typeof(DefaultCharacterDevelopmentModel), "CalculateLearningLimit", typeof(Hero), typeof(SkillObject), typeof(StatExplainer))]
+    [HarmonyPatch(typeof(DefaultCharacterDevelopmentModel), "CalculateLearningLimit", typeof(int), typeof(int), typeof(TextObject), typeof(bool))]
     public class Patch3 {
-        public static TextObject desription = new TextObject("{=MRktqZwu}Skill Focus", (Dictionary<string, TextObject>)null);
-        static bool Prefix(DefaultCharacterDevelopmentModel __instance, Hero hero, SkillObject skill, StatExplainer explainer, ref int __result) {
-            __result = Reworked_SkillsSubModule.__LEANRINGLIMIT;
-            return false; // make sure you only skip if really necessary
-        }
-    }
+        private static readonly TextObject _Learning_Limit_Text = new TextObject("{=MRktqZwo}Learning Limit");
 
-    [HarmonyPatch(typeof(DefaultCharacterDevelopmentModel), "CalculateLearningLimit", typeof(int), typeof(int), typeof(TextObject), typeof(StatExplainer))]
-    class Patch4 {
-        private static TextObject _LevelText = new TextObject("{=RSaSKILV}Base Skill", (Dictionary<string, TextObject>)null);
-        public static int SKILLLEVEL;
+        static bool Prefix(DefaultCharacterDevelopmentModel __instance, int attributeValue, int focusValue, TextObject attributeName, bool includeDescriptions, ref ExplainedNumber __result) {
+            ExplainedNumber learningLimit = new ExplainedNumber(includeDescriptions: includeDescriptions);
+            //ORIGINAL
+            // learningLimit.Add((float) ((attributeValue - 1) * 10), attributeName);
+            // learningLimit.Add((float) (focusValue * 30), _skillFocusText);
+            // learningLimit.LimitMin(0.0f);
+            learningLimit.Add((float)(Reworked_SkillsSubModule.__LEANRINGLIMIT), _Learning_Limit_Text);
+            __result = learningLimit;
 
-        static bool Prefix(DefaultCharacterDevelopmentModel __instance, int attributeValue, int focusValue, TextObject attributeName, StatExplainer explainer, ref int __result) {
-            if (explainer != null) {
-                ExplainedNumber explainedNumber = new ExplainedNumber(0.0f, explainer, (TextObject)null);
-                explainedNumber.Add(SKILLLEVEL, _LevelText);
-                explainedNumber.Add(attributeValue * Reworked_SkillsSubModule.__ATTR_VALUE, attributeName);
-                explainedNumber.Add(focusValue * Reworked_SkillsSubModule.__FOCUS_VALUE, Patch3.desription);
-                explainedNumber.LimitMin(0.0f);
-                __result = (int)explainedNumber.ResultNumber;
-                return false;
-            }
-            __result = (int)Reworked_SkillsSubModule.__LEANRINGLIMIT;
             return false;
         }
     }
+
+
+    // public override float CalculateLearningRate(Hero hero, SkillObject skill);
+    // public override ExplainedNumber CalculateLearningRate(
+    //     int attributeValue,
+    //     int focusValue,
+    //     int skillValue,
+    //     int characterLevel,
+    //     TextObject attributeName,
+    //     bool includeDescriptions = false);
 
     [HarmonyPatch(typeof(DefaultCharacterDevelopmentModel), "CalculateLearningRate",
-        typeof(int), typeof(int), typeof(int), typeof(int), typeof(TextObject), typeof(StatExplainer))]
+        typeof(int), typeof(int), typeof(int), typeof(int), typeof(TextObject), typeof(bool))]
     class Patch6 {
-        private static TextObject _LevelText = new TextObject("{=RSaFRMLV}From Level", (Dictionary<string, TextObject>)null);
-        private static TextObject _NormalizedPenaltyText = new TextObject("{=RSaNRLPT}Normalized Penalty", (Dictionary<string, TextObject>)null);
-        private static TextObject _FixedRateText = new TextObject("{=RSaFXDRT}Fixed Rate", (Dictionary<string, TextObject>)null);
-        private static TextObject _skillFocusText = new TextObject("{=MRktqZwu}Skill Focus", (Dictionary<string, TextObject>)null);
-        private static TextObject _overLimitText = new TextObject("{=bcA7ZuyO}Learning Limit Exceeded", (Dictionary<string, TextObject>)null);
+        public static readonly TextObject _LevelText = new TextObject("{=RSaFRMLV}From Level");
+        public static readonly TextObject _BaseText = new TextObject("{=RSaFRMLF}Base Level");
+        public static readonly TextObject _NormalizedPenaltyText = new TextObject("{=RSaNRLPT}Normalized Penalty");
+        public static readonly TextObject _FixedRateText = new TextObject("{=RSaFXDRT}Fixed Rate");
+        public static readonly TextObject _skillFocusText = new TextObject("{=MRktqZwu}Skill Focus");
+        public static readonly TextObject _overLimitText = new TextObject("{=bcA7ZuyO}Learning Limit Exceeded");
 
         static bool Prefix(DefaultCharacterDevelopmentModel __instance,
-            int attributeValue, int focusValue, int skillValue, int characterLevel, TextObject attributeName, StatExplainer explainer, ref float __result) {
+            int attributeValue, int focusValue, int skillValue, int characterLevel, TextObject attributeName, bool includeDescriptions, ref ExplainedNumber __result) {
+            ExplainedNumber learningRate = new ExplainedNumber(1.25f, includeDescriptions);
+            //ORIGINAL
+            // learningRate.AddFactor(0.4f * (float) attributeValue, attributeName);
+            // learningRate.AddFactor((float) focusValue * 1f, DefaultCharacterDevelopmentModel._skillFocusText);
+            // int num1 = MathF.Round(this.CalculateLearningLimit(attributeValue, focusValue, (TextObject) null, false).ResultNumber);
+            // if (skillValue > num1)
+            // {
+            //     int num2 = skillValue - num1;
+            //     learningRate.AddFactor((float) (-1.0 - 0.10000000149011612 * (double) num2), DefaultCharacterDevelopmentModel._overLimitText);
+            // }
+            // learningRate.LimitMin(0.0f);
+            // return learningRate;
+
             if (attributeValue == 11) {
                 skillValue -= (int)(attributeValue * Reworked_SkillsSubModule.__ATTR_VALUE + focusValue * Reworked_SkillsSubModule.__FOCUS_VALUE);
             }
-            ExplainedNumber explainedNumber = new ExplainedNumber(0, explainer, (TextObject)null);
             float BaseByLevel = (float)(20.0 / (10.0 + (double)characterLevel));
-            float Attribute = 0.4f * (float)10;
-            float Focus = (float)5 * 1f;
+            float Attribute = attributeValue * 0.4f;
+            float Focus = focusValue * 1f;
             if (Reworked_SkillsSubModule.__DEFAULTLEARNING) {
-                explainedNumber.Add(BaseByLevel, _LevelText);
-                explainedNumber.Add(Attribute, attributeName);
-                explainedNumber.Add(Focus, _skillFocusText);
+                learningRate.Add(BaseByLevel, _LevelText);
+                learningRate.Add(Attribute, attributeName);
+                learningRate.Add(Focus, _skillFocusText);
             } else if (Reworked_SkillsSubModule.__DEFAULTNORMALIZEDLEARNING) {
-                float penalty = Math.Max(0, Reworked_SkillsSubModule.__SKILLPNLT - skillValue) / Reworked_SkillsSubModule.__SKILLPNLTDV;
-                explainedNumber.Add(BaseByLevel, _LevelText);
-                explainedNumber.Add(Attribute, attributeName);
-                explainedNumber.Add(Focus, _skillFocusText);
-                explainedNumber.Add(-penalty, _NormalizedPenaltyText);
+                float penalty = Math.Max(1, Math.Max(0, Reworked_SkillsSubModule.__SKILLPNLT - skillValue) / Reworked_SkillsSubModule.__SKILLPNLTDV);
+                learningRate.Add(BaseByLevel, _LevelText);
+                learningRate.Add(Attribute, attributeName);
+                learningRate.Add(Focus, _skillFocusText);
+                if (penalty > 1) {
+                    learningRate.AddFactor(1 / penalty, _NormalizedPenaltyText);
+                }
             } else if (Reworked_SkillsSubModule.__FIXEDRATE) {
-                explainedNumber.Add(Reworked_SkillsSubModule.__FIXEDLEARNINGRATE, _FixedRateText);
+                learningRate.Add(Reworked_SkillsSubModule.__FIXEDLEARNINGRATE, _FixedRateText);
             }
-            int learningLimit = Reworked_SkillsSubModule.__LEANRINGLIMIT;// __instance.CalculateLearningLimit(10, 5, (TextObject)null, (StatExplainer)null);
+            int learningLimit = Reworked_SkillsSubModule.__LEANRINGLIMIT; // __instance.CalculateLearningLimit(10, 5, (TextObject)null, (StatExplainer)null);
             if (skillValue > learningLimit) {
                 int num = skillValue - learningLimit;
-                explainedNumber.AddFactor((float)(-1.0 - 0.100000001490116 * (double)num), _overLimitText);
+                learningRate.AddFactor((float)(-1.0 - 0.100000001490116 * (double)num), _overLimitText);
             }
-            explainedNumber.LimitMin(0.0f);
-            __result = explainedNumber.ResultNumber;
+            learningRate.LimitMin(0.0f);
+            __result = learningRate;
             return false; // make sure you only skip if really necessary
         }
     }
 
     [HarmonyPatch(typeof(SkillVM), "RefreshValues")]
     class Patch7 {
-        private static TextObject _learningLimitStr = new TextObject("{=RWaLRNLM}Effective Skill", (Dictionary<string, TextObject>)null);
-        private static TextObject _learningRateStr = new TextObject("{=RWaLRNRT}Learning Rate", (Dictionary<string, TextObject>)null);
-        static void Postfix(SkillVM __instance, ref int ____fullLearningRateLevel, CharacterVM ____developerVM) {
-            int attr = ____developerVM.GetCurrentAttributePoint(__instance.Skill.CharacterAttributesEnum);
-            ____fullLearningRateLevel = (int)(__instance.Level + __instance.CurrentFocusLevel * Reworked_SkillsSubModule.__FOCUS_VALUE + attr * Reworked_SkillsSubModule.__ATTR_VALUE);
-            TextObject attrname = CharacterAttributes.GetCharacterAttribute(__instance.Skill.CharacterAttributeEnum).Name;
+        private static TextObject _learningLimitStr = new TextObject("{=RWaLRNLM}Effective Skill");
+        private static TextObject _learningRateStr = new TextObject("{=RWaLRNRT}Learning Rate");
 
-            __instance.LearningRateTooltip = new BasicTooltipViewModel(() => GetLearningRateTooltip(attr, __instance.CurrentFocusLevel, __instance.Level, ____developerVM.Hero.CharacterObject.Level, attrname));
-            __instance.LearningLimitTooltip = new BasicTooltipViewModel(() => {
-                Patch4.SKILLLEVEL = __instance.Level;
-                return GetLearningLimitTooltip(attr, __instance.CurrentFocusLevel, attrname);
-            });
+        static void Postfix(SkillVM __instance, ref int ____fullLearningRateLevel, ref TextObject ____boundAttributeName, CharacterVM ____developerVM) {
+            int attr = ____developerVM.GetCurrentAttributePoint(__instance.Skill.CharacterAttribute);
+            ____fullLearningRateLevel = (int)(__instance.Level + __instance.CurrentFocusLevel * Reworked_SkillsSubModule.__FOCUS_VALUE + attr * Reworked_SkillsSubModule.__ATTR_VALUE);
+
+            TextObject o = ____boundAttributeName;
+            // __instance.LearningRateTooltip = new BasicTooltipViewModel(() => GetLearningRateTooltip(attr, __instance.CurrentFocusLevel, __instance.Level, ____developerVM.Hero.CharacterObject.Level, o));
+            int i = ____fullLearningRateLevel;
+            __instance.LearningLimitTooltip = new BasicTooltipViewModel(() => GetLearningLimitTooltip(attr, __instance.CurrentFocusLevel, o, attr, __instance, i));
         }
-        public static List<TooltipProperty> GetLearningLimitTooltip(int attributeValue, int focusValue, TextObject attributeName) {
-            StatExplainer statExplainer = new StatExplainer();
-            int learningLimit = Campaign.Current.Models.CharacterDevelopmentModel.CalculateLearningLimit(attributeValue, focusValue, attributeName, statExplainer);
-            var ret = (List<TooltipProperty>)Reworked_SkillsSubModule.GetTooltipForAccumulatingPropertyWithResult.Invoke(null, new object[] { _learningLimitStr.ToString(), (float)learningLimit, statExplainer });
-            return ret;
+
+        public static List<TooltipProperty> GetLearningLimitTooltip(int attributeValue, int focusValue, TextObject attributeName, int attr, SkillVM __instance, int SkillLevel) {
+            ExplainedNumber learningLimit = new ExplainedNumber(0, true);
+            learningLimit.Add(__instance.Level, Patch6._BaseText);
+            learningLimit.Add(attr * Reworked_SkillsSubModule.__ATTR_VALUE, attributeName);
+            learningLimit.Add(__instance.CurrentFocusLevel * Reworked_SkillsSubModule.__FOCUS_VALUE, Patch6._skillFocusText);
+            return CampaignUIHelper.GetTooltipForAccumulatingPropertyWithResult(_learningLimitStr.ToString(), SkillLevel, ref learningLimit);
         }
-        public static List<TooltipProperty> GetLearningRateTooltip(int attributeValue, int focusValue, int skillValue, int characterLevel, TextObject attributeName) {
-            StatExplainer statExplainer = new StatExplainer();
-            float learningRate = Campaign.Current.Models.CharacterDevelopmentModel.CalculateLearningRate(attributeValue, focusValue, skillValue, characterLevel, attributeName, statExplainer);
-            var ret = (List<TooltipProperty>)Reworked_SkillsSubModule.GetTooltipForAccumulatingPropertyWithResult.Invoke(null, new object[] { _learningRateStr.ToString(), learningRate, statExplainer });
-            return ret;
-        }
+
+        // public static List<TooltipProperty> GetLearningRateTooltip(int attributeValue, int focusValue, int skillValue, int characterLevel, TextObject attributeName) {
+        //     ExplainedNumber learningLimit = Campaign.Current.Models.CharacterDevelopmentModel.CalculateLearningLimit(attributeValue, focusValue, attributeName, true);
+        //     return CampaignUIHelper.GetTooltipForAccumulatingPropertyWithResult(_learningRateStr.ToString(), learningLimit.ResultNumber, ref learningLimit);
+        // }
 
         [HarmonyPatch(typeof(SkillVM), "RefreshWithCurrentValues")]
         class Patch8 {
+            // float resultNumber = Campaign.Current.Models.CharacterDevelopmentModel.CalculateLearningRate(this._boundAttributeCurrentValue, this.CurrentFocusLevel, this.Level, this._heroLevel, this._boundAttributeName).ResultNumber;
+            // GameTexts.SetVariable("COUNT", resultNumber.ToString("0.00"));
+            // this.CurrentLearningRateText = GameTexts.FindText("str_learning_rate_COUNT").ToString();
+            //     this.CanLearnSkill = (double) resultNumber > 0.0;
+            // this.LearningRate = resultNumber;
+            // this.FullLearningRateLevel = MathF.Round(Campaign.Current.Models.CharacterDevelopmentModel.CalculateLearningLimit(this._boundAttributeCurrentValue, this.CurrentFocusLevel, this._boundAttributeName).ResultNumber);
+            // int withCurrentFocus = this._developerVM.GetRequiredFocusPointsToAddFocusWithCurrentFocus(this.Skill);
+            // GameTexts.SetVariable("COSTAMOUNT", withCurrentFocus);
+            // this.FocusCostText = withCurrentFocus.ToString();
+            // GameTexts.SetVariable("COUNT", withCurrentFocus);
+            // GameTexts.SetVariable("RIGHT", "");
+            // GameTexts.SetVariable("LEFT", GameTexts.FindText("str_cost_COUNT"));
+            // MBTextManager.SetTextVariable("FOCUS_ICON", GameTexts.FindText("str_html_focus_icon"), false);
+            // this.NextLevelCostText = GameTexts.FindText("str_sf_text_with_focus_icon").ToString();
+            //     this.RefreshCanAddFocus();
+
+
             static void Postfix(SkillVM __instance, ref int ____fullLearningRateLevel, CharacterVM ____developerVM) {
-                int attr = ____developerVM.GetCurrentAttributePoint(__instance.Skill.CharacterAttributeEnum);
+                int attr = ____developerVM.GetCurrentAttributePoint(__instance.Skill.CharacterAttribute);
                 ____fullLearningRateLevel = (int)(__instance.Level + __instance.CurrentFocusLevel * Reworked_SkillsSubModule.__FOCUS_VALUE + attr * Reworked_SkillsSubModule.__ATTR_VALUE);
                 __instance.OnPropertyChanged(nameof(__instance.FullLearningRateLevel));
 
                 __instance.SkillEffects.Clear();
                 int skillValue = (int)(__instance.Level + __instance.CurrentFocusLevel * Reworked_SkillsSubModule.__FOCUS_VALUE + attr * Reworked_SkillsSubModule.__ATTR_VALUE);
-                foreach (SkillEffect effect in DefaultSkillEffects.GetAllSkillEffects().Where<SkillEffect>((Func<SkillEffect, bool>)(x => ((IEnumerable<SkillObject>)x.EffectedSkills).Contains<SkillObject>(__instance.Skill))))
+                foreach (SkillEffect effect in SkillEffect.All.Where(x => x.EffectedSkills.Contains(__instance.Skill)))
                     __instance.SkillEffects.Add(new BindingListStringItem(CampaignUIHelper.GetSkillEffectText(effect, skillValue)));
-
             }
         }
     }
 
-    //[HarmonyPatch(typeof(CampaignUIHelper), "GetLearningLimitTooltip")]
-    //class Patch9 {
-    //    private static readonly TextObject _learningLimitStr2 = new TextObject("{=RWaEFFSK}Effective Skill", (Dictionary<string, TextObject>)null);
-    //    static bool Prefix(int attributeValue, int focusValue, TextObject attributeName, ref List<TooltipProperty> __result) {
-    //        StatExplainer statExplainer = new StatExplainer();
-    //        int learningLimit = Campaign.Current.Models.CharacterDevelopmentModel.CalculateLearningLimit(attributeValue, focusValue, attributeName, statExplainer);
-    //        __result = (List<TooltipProperty>)Reworked_SkillsSubModule.GetTooltipForAccumulatingPropertyWithResult.Invoke(null, new object[] { _learningLimitStr2.ToString(), (float)learningLimit, statExplainer });
-    //        return false;
-    //    }
-    //}
+    // public static List<TooltipProperty> GetLearningLimitTooltip(
+    //     int attributeValue,
+    //     int focusValue,
+    //     TextObject attributeName);
+
+    // [HarmonyPatch(typeof(CampaignUIHelper), "GetLearningLimitTooltip")]
+    // class Patch9 {
+    //     private static readonly TextObject _learningLimitStr2 = new TextObject("{=RWaEFFSK}Effective Skill");
+    //     static bool Prefix(int attributeValue, int focusValue, TextObject attributeName, ref List<TooltipProperty> __result) {
+    //         ExplainedNumber learningLimit = Campaign.Current.Models.CharacterDevelopmentModel.GetSkillValue(attributeValue, focusValue, attributeName, true);
+    //         __result= CampaignUIHelper.GetTooltipForAccumulatingPropertyWithResult(_learningLimitStr2.ToString(), learningLimit.ResultNumber, ref learningLimit);
+    //
+    //         // StatExplainer statExplainer = new StatExplainer();
+    //         // int learningLimit = Campaign.Current.Models.CharacterDevelopmentModel.CalculateLearningLimit(attributeValue, focusValue, attributeName, statExplainer);
+    //        //__result = (List<TooltipProperty>)Reworked_SkillsSubModule.GetTooltipForAccumulatingPropertyWithResult.Invoke(null, new object[] { _learningLimitStr2.ToString(), (float)learningLimit, statExplainer });
+    //         return false;
+    //     }
+    // }
 }
